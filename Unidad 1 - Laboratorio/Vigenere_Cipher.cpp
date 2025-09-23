@@ -29,18 +29,21 @@ std::string vigenere_cipher(const std::string& text, const std::string& key, con
     std::unordered_map<char, int> index_map = build_index_map(alphabet);
     std::string cipher_text;
     int size_alphabet = alphabet.size();
+    int key_index = 0;
 
-    for (int i = 0; i < text.size(); i++) {
-        char letter = text[i];
-        if (index_map.find(letter) != index_map.end()) {
-            char key_char = key[i % key.size()];
-            int p = index_map[letter];
+    for (char letter : text) {
+        char up = std::toupper((unsigned char)letter);
+        if (index_map.find(up) != index_map.end()) {
+            char key_char = key[key_index % key.size()];
+            int p = index_map[up];
             int k = index_map[key_char];
             int c = (p + k) % size_alphabet;
             cipher_text += alphabet[c];
+        } else {
+            cipher_text += letter;
         }
+        key_index++;
     }
-
     return cipher_text;
 }
 
@@ -83,7 +86,7 @@ int main() {
         std::getline(std::cin, text_input);
     }
     else {
-        std::cerr << "Opción inválida.\n";
+        std::cerr << "Opcion invalida.\n";
         return 1;
     }
 
