@@ -1,4 +1,5 @@
 import struct
+import math
 
 """Implementantion of hash algorithms."""
 
@@ -95,10 +96,105 @@ class MD4:
     def left_rotate(value, amount):
         return ((value << amount) | (value >> (32 - amount))) & MD4.mask
     
+"""MD5 Hash Algorithm"""
+
+class MD5:
+    h = [
+        0x67452301,
+        0xEFCDAB89,
+        0x98BADCFE,
+        0x10325476
+    ]
+    
+    rotate_amounts = [
+        7, 12, 17, 22, 7, 12, 17, 22, 7, 12, 17, 22, 7, 12, 17, 22,
+        5, 9, 14, 20, 5, 9, 14, 20, 5, 9, 14, 20, 5, 9, 14, 20,
+        4, 11, 16, 23, 4, 11, 16, 23, 4, 11, 16, 23, 4, 11, 16, 23,
+        6, 10, 15, 21, 6, 10, 15, 21, 6, 10, 15, 21, 6, 10, 15, 21
+    ]
+    
+    constants = [int(abs(math.sin(i + 1)) * 4294967296) & 0xFFFFFFFF for i in range(64)]
+    
+    def __init__(self, message = None):
+        if message is None:
+            message = b""
+        
+        if isinstance(message, str):
+            message = message.encode("ascii")
+        
+        self.message = message
+        
+        ml = (len(message) * 8) & 0xFFFFFFFFFFFFFFFF
+        message = bytearray(message)
+        message.append(0x80)
+        
+        while len(message) % 64 != 56:
+            message.append(0)
+        
+        message += ml.to_bytes(8, byteorder='little')
+        
+        self._process([message[i : i + 64] for i in range(0, len(message), 64)])
+    
+    def __repr__(self):
+        if self.message:
+            return f"{self.__class__.__name__}('{self.message.decode()}')"
+        return f"{self.__class__.__name__}()"
+    
+    def __str__(self):
+        return self.hexdigest()
+    
+    def __eq__(self, other):
+        return self.h == other.h
+    
+    def bytes(self):
+        return struct.pack("<4L", *self.h)
+    
+    def hexbytes(self):
+        return self.hexdigest().encode()
+    
+    def hexdigest(self):
+        return "".join(f"{value:02x}" for value in self.bytes())
+    
+    def _process(self, chunks):
+        for chunk in chunks:
+            A, B, C, D = self.h
+            X = list(struct.unpack("<16I", chunk))
+            
+            for i in range(64):
+                if i < 16:
+                    F = (B & C) | (~B & D)
+                    g = i
+                elif i < 32:
+                    F = (D & B) | (~D & C)
+                    g = (5 * i + 1) % 16
+                elif i < 48:
+                    F = B ^ C ^ D
+                    g = (3 * i + 5) % 16
+                else:
+                    F = C ^ (B | ~D)
+                    g = (7 * i) % 16
+                
+                to_rotate = (A + F + self.constants[i] + X[g]) & 0xFFFFFFFF
+                new_B = (B + self.left_rotate(to_rotate, self.rotate_amounts[i])) & 0xFFFFFFFF
+                
+                A, B, C, D = D, new_B, B, C
+            
+            self.h[0] = (self.h[0] + A) & 0xFFFFFFFF
+            self.h[1] = (self.h[1] + B) & 0xFFFFFFFF
+            self.h[2] = (self.h[2] + C) & 0xFFFFFFFF
+            self.h[3] = (self.h[3] + D) & 0xFFFFFFFF
+        
+    @staticmethod
+    def left_rotate(value, amount):
+        value &= 0xFFFFFFFF
+        return (value << amount | value >> (32 - amount)) & 0xFFFFFFFF
+
 def main():
     message = b"The quick brown fox jumps over the lazy dog"
     md4 = MD4(message)
+    md5 = MD5(message)
     print(f"MD4('{message.decode()}') = {md4.hexdigest()}")
+    print(f"MD5('{message.decode()}') = {md5.hexdigest()}")
     
 if __name__ == "__main__":
     main()
