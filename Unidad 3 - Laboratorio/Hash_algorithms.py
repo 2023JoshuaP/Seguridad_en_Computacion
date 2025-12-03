@@ -29,22 +29,8 @@ class MD4:
         
         self._process_chunks([message[i : i + 64] for i in range(0, len(message), 64)])
     
-    def __repr__(self):
-        if self.message:
-            return f"{self.__class__.__name__}('{self.message.decode()}')"
-        return f"{self.__class__.__name__}()"
-    
-    def __str__(self):
-        return self.hexdigest()
-    
-    def __eq__(self, other):
-        return self.h == other.h
-    
     def digest_bytes(self):
         return struct.pack("<4L", *self.h)
-    
-    def digest_hex_bytes(self):
-        return self.hexdigest().encode()
     
     def hexdigest(self):
         return "".join(f"{value:02x}" for value in self.digest_bytes())
@@ -135,22 +121,8 @@ class MD5:
         
         self._process([message[i : i + 64] for i in range(0, len(message), 64)])
     
-    def __repr__(self):
-        if self.message:
-            return f"{self.__class__.__name__}('{self.message.decode()}')"
-        return f"{self.__class__.__name__}()"
-    
-    def __str__(self):
-        return self.hexdigest()
-    
-    def __eq__(self, other):
-        return self.h == other.h
-    
     def bytes(self):
         return struct.pack("<4L", *self.h)
-    
-    def hexbytes(self):
-        return self.hexdigest().encode()
     
     def hexdigest(self):
         return "".join(f"{value:02x}" for value in self.bytes())
@@ -189,12 +161,88 @@ class MD5:
         value &= 0xFFFFFFFF
         return (value << amount | value >> (32 - amount)) & 0xFFFFFFFF
 
+"""SHA-1 Hash Algorithm"""
+
+class SHA1:
+    entry_constants = [
+        [0x5a827999] * 20 +
+        [0x6ed9eba1] * 20 +
+        [0x8f1bbcdc] * 20 +
+        [0xca62c1d6] * 20
+    ]
+    
+    def __init__(self, message = None):
+        if message is None:
+            message = b""
+        
+        if isinstance(message, str):
+            message = message.encode("utf-8")
+        
+        self.message = message
+        self.hash_constants = [0x67452301, 0xefcdab89, 0x98badcfe, 0x10325476, 0xc3d2e1f0]
+        
+        ml = len(message) * 8
+        message = bytearray(message)
+        message.append(0x80)
+        
+        while len(message) % 64 != 56:
+            message.append(0)
+        
+        message += ml.to_bytes(8, byteorder='big')
+        
+        self._process([message[i : i + 64] for i in range(0, len(message), 64)])
+    
+    def bytes(self):
+        return struct.pack(">5I", *self.hash_constants)
+    
+    def hexdigest(self):
+        return "".join(f"{value:08x}" for value in self.hash_constants)
+    
+    def _process(self, chunks):
+        for chunk in chunks:
+            w = list(struct.unpack(">16I", chunk))
+            
+            for i in range(16, 80):
+                w.append(self.left_rotate(w[i - 3] ^ w[i - 8] ^ w[i - 14] ^ w[i - 16], 1))
+            
+            a, b, c, d, e = self.hash_constants
+            
+            for i in range(80):
+                if i < 20:
+                    f = (b & c) | (~b & d)
+                elif i < 40:
+                    f = b ^ c ^ d
+                elif i < 60:
+                    f = (b & c) | (b & d) | (c & d)
+                else:
+                    f = b ^ c ^ d
+                
+                temp = (self.left_rotate(a, 5) + f + e + self.entry_constants[0][i] + w[i]) & 0xFFFFFFFF
+                e = d
+                d = c
+                c = self.left_rotate(b, 30)
+                b = a
+                a = temp
+            
+            self.hash_constants[0] = (self.hash_constants[0] + a) & 0xFFFFFFFF
+            self.hash_constants[1] = (self.hash_constants[1] + b) & 0xFFFFFFFF
+            self.hash_constants[2] = (self.hash_constants[2] + c) & 0xFFFFFFFF
+            self.hash_constants[3] = (self.hash_constants[3] + d) & 0xFFFFFFFF
+            self.hash_constants[4] = (self.hash_constants[4] + e) & 0xFFFFFFFF
+        
+    @staticmethod
+    def left_rotate(value, amount):
+        value &= 0xFFFFFFFF
+        return (value << amount | value >> (32 - amount)) & 0xFFFFFFFF
+
 def main():
     message = b"The quick brown fox jumps over the lazy dog"
     md4 = MD4(message)
     md5 = MD5(message)
+    sha1 = SHA1(message)
     print(f"MD4('{message.decode()}') = {md4.hexdigest()}")
     print(f"MD5('{message.decode()}') = {md5.hexdigest()}")
+    print(f"SHA1('{message.decode()}') = {sha1.hexdigest()}")
     
 if __name__ == "__main__":
     main()
